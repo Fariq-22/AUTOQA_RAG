@@ -19,7 +19,6 @@ async def extract_pages_to_json(docs: List[object]) -> json:
     url_strip = re.compile(r'https?://\S+')
 
     output: List[Dict[str, object]] = []
-
     for doc in docs:
         # 1) Get HTML source
         if getattr(doc, "rawHtml", None):
@@ -110,3 +109,6 @@ async def all_content_formatting(extracted:json) -> str:
         content_from_pdf= await download_extract_text_from_pdf(new_links)
         all_text+="\n"+content_from_pdf+"\n"
     return all_text
+
+
+
