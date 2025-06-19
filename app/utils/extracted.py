@@ -6,7 +6,7 @@ import re
 import io
 import requests
 import pdfplumber
-
+import logging
 async def extract_pages_to_json(docs: List[object]) -> json:
     """
     From a list of FirecrawlDocument-like objects, writes a JSON list where each entry has:
@@ -17,7 +17,7 @@ async def extract_pages_to_json(docs: List[object]) -> json:
     # Define which extensions count as “files”
     doc_exts = ('.pdf', '.doc', '.docx', '.xls', '.xlsx', '.ppt', '.pptx')
     url_strip = re.compile(r'https?://\S+')
-
+    # print(str(docs)[:100])
     output: List[Dict[str, object]] = []
     for doc in docs:
         # 1) Get HTML source
@@ -59,6 +59,8 @@ async def extract_pages_to_json(docs: List[object]) -> json:
 
 
 
+
+
 async def unique_pdf(links:List[str],available:List[str])->List[str]:
     checked=[]
     for link in links:
@@ -67,32 +69,102 @@ async def unique_pdf(links:List[str],available:List[str])->List[str]:
     return checked
 
 
-async def download_extract_text_from_pdf(links:str):
+
+
+
+# async def download_extract_text_from_pdf(links:str):
+#     headers = {
+#         "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)",
+#         "Accept": "application/pdf",
+#         "Accept-Language": "en-US,en;q=0.9",
+#         "Accept-Encoding": "identity",  # Avoid compression issues
+#         "Referer": "https://google.com"
+#     }
+#     all_content=""
+#     for link in links:
+#         try:
+#             resp = requests.get(link, headers=headers, timeout=(10,60))
+#             resp.raise_for_status()
+#         except Exception as e:
+#             print(f"{link}={e}")
+#         # 2) open with pdfplumber from a BytesIO buffer
+#         if ".pdf" in link:
+#             with pdfplumber.open(io.BytesIO(resp.content)) as pdf:
+#                 # join page texts with double newlines
+#                 text = "\n\n".join(
+#                     page.extract_text() or "" for page in pdf.pages
+#                 ).strip()
+#         else:
+#             continue
+#         all_content+=link+"\n"+text+"\n"
+#     return all_content
+
+
+
+
+
+
+async def download_extract_text_from_pdf(links: List[str]) -> str:
+    """
+    Download each PDF, skip failures, extract only “real” text pages,
+    strip out (cid:…) junk, and drop pages whose text is <50% letters.
+    Returns one big string of all cleaned text.
+    """
     headers = {
         "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)",
         "Accept": "application/pdf",
         "Accept-Language": "en-US,en;q=0.9",
-        "Accept-Encoding": "identity",  # Avoid compression issues
+        "Accept-Encoding": "identity",
         "Referer": "https://google.com"
     }
-    all_content=""
-    for link in links:
+
+    cleaned_pages = []
+
+    for url in links:
+        if not url.lower().endswith(".pdf"):
+            logging.warning(f"Skipping non‑PDF link: {url}")
+            continue
+
         try:
-            resp = requests.get(link, headers=headers, timeout=(10,60))
+            resp = requests.get(url, headers=headers, timeout=(10, 60))
             resp.raise_for_status()
         except Exception as e:
-            print(f"{link}={e}")
-        # 2) open with pdfplumber from a BytesIO buffer
-        if ".pdf" in link:
-            with pdfplumber.open(io.BytesIO(resp.content)) as pdf:
-                # join page texts with double newlines
-                text = "\n\n".join(
-                    page.extract_text() or "" for page in pdf.pages
-                ).strip()
-        else:
+            logging.warning(f"{url} download failed: {e}")
             continue
-        all_content+=link+"\n"+text+"\n"
-    return all_content
+
+        if "pdf" not in resp.headers.get("Content-Type", "").lower():
+            logging.warning(f"Not a PDF MIME‑type: {url}")
+            continue
+
+        try:
+            with pdfplumber.open(io.BytesIO(resp.content)) as pdf:
+                for page in pdf.pages:
+                    raw = page.extract_text() or ""
+                    if not raw.strip():
+                        continue
+
+                    # 1) remove (cid:###)
+                    no_cid = re.sub(r"\(cid:\d+\)", "", raw)
+                    # 2) drop non‑printable
+                    printable = "".join(ch for ch in no_cid if ch.isprintable())
+                    # 3) compute letter ratio
+                    total = len(printable)
+                    letters = sum(ch.isalpha() for ch in printable)
+                    if total == 0 or letters/total < 0.5:
+                        # too much gibberish—skip this page
+                        continue
+
+                    # page is “real text”
+                    cleaned_pages.append(printable.strip())
+
+        except Exception as e:
+            logging.warning(f"Failed to parse PDF {url}: {e}")
+            continue
+
+    # join all kept pages
+    return "\n\n".join(cleaned_pages)
+
+
 
 
 

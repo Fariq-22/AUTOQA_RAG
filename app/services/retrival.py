@@ -2,13 +2,11 @@ from typing import List,Tuple
 from rank_bm25 import BM25Okapi
 import json
 
-from services.milvus_client import get_milvus_client
 from config import embedding_model,cross_encoder
-
+from config import milvus_client
 
 # --- Vector search with correct API usage ---
-async def vector_search(databasename:str,collection: str, query: str, top_k: int = 5, ef: int = 200) -> List:
-    milvus_client = await get_milvus_client(db_name=databasename)
+async def vector_search(collection: str, query: str, top_k: int = 5, ef: int = 200) -> List:
     q_emb = embedding_model.encode([query]).tolist()[0]
     results = milvus_client.search(
         collection_name=collection,
@@ -35,10 +33,9 @@ async def keyword_search(query: str, texts: List[str], token_corpus: List[List[s
 
 
 # --- Pagination fetch ---
-async def fetch_all_docs(database:str,collection: str, batch_size: int = 500) -> Tuple[List[str], List[List[str]]]:
+async def fetch_all_docs(collection: str, batch_size: int = 500) -> Tuple[List[str], List[List[str]]]:
     docs = []
     offset = 0
-    milvus_client = await get_milvus_client(db_name=database)
     while True:
         rows = milvus_client.query(
             collection_name=collection,
@@ -69,12 +66,12 @@ async def fetch_all_docs(database:str,collection: str, batch_size: int = 500) ->
 
 
 # --- Hybrid retrieval with reranking ---
-async def hybrid_retrieve(databasename:str,collection_name: str, query: str, top_k: int = 5):
+async def hybrid_retrieve(collection_name: str, query: str, top_k: int = 5):
 
-    texts, tokens = await fetch_all_docs(database=databasename,collection=collection_name)
+    texts, tokens = await fetch_all_docs(collection=collection_name)
 
     kw = await keyword_search(query, texts, tokens, top_k)
-    vec = await vector_search(databasename=databasename,collection=collection_name,query=query)
+    vec = await vector_search(collection=collection_name,query=query)
 
     seen = set(); candidates = []
     for txt, _ in kw + vec:

@@ -2,11 +2,12 @@
 from fastapi import FastAPI
 from api.routers.create_collection import router as kb_router
 from api.routers.database_information import router as db_router
-from api.routers.retrival import router as retrival_router
+from api.routers.retrival_router import router as retrival_router
 
 app = FastAPI(
-    title="My RAG Service",
+    title="KAPTURECX RAG Service",
     version="1.0.0",
+    description="The services is used to create the knowledge Base. "
 )
 
 # All of your “web_link_to_knowledge” endpoints live here
