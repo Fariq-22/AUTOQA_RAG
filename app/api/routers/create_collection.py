@@ -116,7 +116,7 @@ async def Making_Knowledge_Base(payload: LinkToKnowledge):
             name=payload.name,
             link=payload.link,
             know_base_id=knowledge_base_id,
-            crawl_websites=links,
+            crawl_websites=None,
             status="Failed",
             error=str(e)
         )
