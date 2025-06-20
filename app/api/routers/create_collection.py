@@ -3,7 +3,7 @@ from pydantic import BaseModel, Field
 from typing import List
 
 from utils.scraper import crawl_website,get_crawled_urls,scrape_multiple_urls
-from utils.extracted import extract_pages_to_json, all_content_formatting 
+from utils.extracted import extract_pages_to_json, all_content_formatting ,download_extract_text_from_pdf
 from utils.chunking import Recursive_chunking
 from services.collection_schema import Create_Collection
 from utils.db_query import insert_data_to_collection
@@ -218,6 +218,83 @@ async def Making_Knowledge_Base_Multi_Links(payload: Multiple_Links):
         return {"error": str(e)}
 
 
+@router.post("/PDF_link_to_knowledge", summary="Create a knowledge base from a multiple PDF Files",description="""
+        scarpe the data from pdf , and stores it in Milvus.
+
+        - `name`: str=The name of the knowldeg 
+        - `cmd_id`:str= unique cmd id for each client
+        - `link`: List=links of the pdf
+             """)
+async def Making_Knowledge_Base_PDF(payload: Multiple_Links):
+    knowledge_base_id = generate_safe_collection_name(payload.cmd_id)
+
+    # Initially mark as processing
+    await dump_or_update_knowledge_info(
+        cmd_id=payload.cmd_id,
+        name=payload.name,
+        link=payload.multi_links,
+        know_base_id=knowledge_base_id,
+        crawl_websites=None,
+        status="Processing"
+    )
+
+    try:
+        pdf_content = await download_extract_text_from_pdf(payload.multi_links)
+        print("<<<<<--- PDF Scarping Completed ---->>>>>>>>")
+
+        chunked_text = await Recursive_chunking(text=pdf_content)
+        print("<<<<<--- Chunking Completed ---->>>>>>>>")
+
+        collection_ready = await Create_Collection(
+            collection_name=knowledge_base_id,
+            description=f"PDF data for {payload.multi_links}"
+        )
+
+        if not collection_ready:
+            raise Exception("Failed to create or access collection")
+
+        inserted = await insert_data_to_collection(
+            collection_name=knowledge_base_id,
+            chunked_data=chunked_text
+        )
+
+        if not inserted:
+            raise Exception("Failed to insert data into Milvus collection")
+
+        # Mark as completed
+        await dump_or_update_knowledge_info(
+            cmd_id=payload.cmd_id,
+            name=payload.name,
+            link=payload.multi_links,
+            know_base_id=knowledge_base_id,
+            crawl_websites=None,
+            status="Completed"
+        )
+
+        print("<<<<<--- Data Inserted Completed ---->>>>>>>>")
+
+        return {
+            "message": "Ingestion complete",
+            "chunks_stored": len(chunked_text),
+            "collection": knowledge_base_id,
+            "database": "kapture"
+        }
+
+    except Exception as e:
+        logging.exception("Failed during ingestion")
+
+        # Mark as failed
+        await dump_or_update_knowledge_info(
+            cmd_id=payload.cmd_id,
+            name=payload.name,
+            link=payload.multi_links,
+            know_base_id=knowledge_base_id,
+            crawl_websites=None,
+            status="Failed",
+            error=str(e)
+        )
+
+        return {"error": str(e)}
 
 
 @router.post("/Scarped_website_links", summary="Used to retrive the links from mogo")

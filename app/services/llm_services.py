@@ -1,6 +1,8 @@
-from config import GEMINI_API_KEY
+from config import GEMINI_API_KEY,GEMINI_MODEL_GENERATION,GEMINI_MODEL_Query
 from google import genai
 from google.genai import types
+import json
+from typing import List,Dict
 
 client = genai.Client(api_key=GEMINI_API_KEY)
 
@@ -29,14 +31,17 @@ Ouput_format
 }
 """
 
+Subquery_prompt = '''
+You are a query generator. Given a user question, generate exactly five concise, related search queries that explore different facets of the original question. Output as a JSON array of strings.
+'''
 
 
 
 async def RAG_Answering(retrived_information:str):
     try:
         response = client.models.generate_content(
-            model="gemini-2.5-flash",
-            contents=str(retrived_information),
+            model=GEMINI_MODEL_GENERATION,
+            contents=retrived_information,
             config=types.GenerateContentConfig(
                 system_instruction=Rag_system_prompt,
                 response_mime_type="application/json"
@@ -47,3 +52,19 @@ async def RAG_Answering(retrived_information:str):
         return e
 
 
+async def generate_subqueries(query: str) -> List[str]:
+    payload = client.models.generate_content(
+        model=GEMINI_MODEL_Query,
+        contents=query,
+        config=types.GenerateContentConfig(
+            system_instruction=Subquery_prompt,
+            response_mime_type="application/json"
+        )
+    )
+    try:
+        subqs = json.loads(payload.text)
+        if not isinstance(subqs, list) or len(subqs) != 5:
+            raise ValueError("Invalid subqueries format")
+        return subqs
+    except Exception as e:
+        return e

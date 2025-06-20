@@ -10,6 +10,8 @@ router = APIRouter()
 class Delete_Collection(BaseModel):
     coll_name:str = Field(...,description="provide collection name to delete")
 
+class Retrive_Collection_Id(BaseModel):
+    cmd_id:str=Field(...,description="The client unique id")
 
 class StatusRequest(BaseModel):
     cmd_id: str = Field(..., description="Client-specific unique ID")
@@ -80,3 +82,29 @@ async def retrieve_collection_status(payload: StatusRequest):
 
 
 
+
+@router.post("/Retrive_collection_id")
+async def retrive_collection_id(payload:Retrive_Collection_Id):
+
+    # Get a connection to MongoDB
+    _, db = get_mongodb_connection()
+
+    # Try to find the document using cmd_id and name
+    document = await db["Web_Info"].find_one({
+        "cm_id": payload.cmd_id,
+    })
+
+    # If document doesn't exist, raise a 404 error
+    if not document:
+        raise HTTPException(status_code=404, detail="Knowledge base entry not found")
+
+    # Extract website_links and optionally error details
+    scarped_links = document.get("know_base_id", "Unknown")
+    error = document.get("error")
+
+    # Structure a user-friendly response
+    response = {"know_base_id": scarped_links}
+    if error:
+        response["error"] = error
+
+    return response
