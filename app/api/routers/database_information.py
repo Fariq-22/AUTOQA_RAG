@@ -108,3 +108,28 @@ async def retrive_collection_id(payload:Retrive_Collection_Id):
         response["error"] = error
 
     return response
+
+
+@router.post("/List_Collection_Info")
+async def List_collection_information(payload: Retrive_Collection_Id):
+    # Get DB
+    _, db = get_mongodb_connection()
+
+    # Fetch all matching documents
+    cursor = db["Web_Info"].find({"cm_id": payload.cmd_id})
+    documents = await cursor.to_list(length=None)
+
+    if not documents:
+        raise HTTPException(status_code=404, detail="No records found for the given cm_id")
+
+    # Extract required fields
+    result = []
+    for doc in documents:
+        result.append({
+            "name": doc.get("name", "Unknown"),
+            "know_base_id": doc.get("know_base_id", "Unknown"),
+            "status": doc.get("status", "Unknown"),
+            "link": doc.get("link", "Unknown")
+        })
+
+    return result   

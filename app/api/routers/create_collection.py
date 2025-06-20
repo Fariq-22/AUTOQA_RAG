@@ -54,7 +54,7 @@ async def Making_Knowledge_Base(payload: LinkToKnowledge):
 
     try:
         web_scraping_data = await crawl_website(payload.link)
-        print("<<<<<--- Web Scraping Completed ---->>>>>>>>")
+        logging.info("Web scraping completed")
         links= await get_crawled_urls(web_scraping_data)
 
         await dump_or_update_knowledge_info(
@@ -66,11 +66,12 @@ async def Making_Knowledge_Base(payload: LinkToKnowledge):
             status="Web_scarped"
                     )
         extracted_json = await extract_pages_to_json(web_scraping_data)
-        print("<<<<<--- Text formatted Completed ---->>>>>>>>")
+        logging.info("Text Format completed")
 
         text = await all_content_formatting(extracted_json)
         chunked_text = await Recursive_chunking(text=text)
-        print("<<<<<--- Chunking Completed ---->>>>>>>>")
+        logging.info("Chunking completed")
+
 
         collection_ready = await Create_Collection(
             collection_name=knowledge_base_id,
@@ -98,7 +99,7 @@ async def Making_Knowledge_Base(payload: LinkToKnowledge):
             status="Completed"
         )
 
-        print("<<<<<--- Data Inserted Completed ---->>>>>>>>")
+        logging.info("Data Inserted Completed")
 
         return {
             "message": "Ingestion complete",
@@ -148,7 +149,7 @@ async def Making_Knowledge_Base_Multi_Links(payload: Multiple_Links):
 
     try:
         web_scraping_data = await scrape_multiple_urls(payload.multi_links)
-        print("<<<<<--- Web Scraping Completed ---->>>>>>>>")
+        logging.info("Web Scraping Completed")
         links= await get_crawled_urls(web_scraping_data)
 
         await dump_or_update_knowledge_info(
@@ -160,11 +161,11 @@ async def Making_Knowledge_Base_Multi_Links(payload: Multiple_Links):
             status="Web_scarped"
                     )
         extracted_json = await extract_pages_to_json(web_scraping_data)
-        print("<<<<<--- Text formatted Completed ---->>>>>>>>")
+        logging.info("Text Format Completed")
 
         text = await all_content_formatting(extracted_json)
         chunked_text = await Recursive_chunking(text=text)
-        print("<<<<<--- Chunking Completed ---->>>>>>>>")
+        logging.info("Chunking Completed")
 
         collection_ready = await Create_Collection(
             collection_name=knowledge_base_id,
@@ -192,7 +193,7 @@ async def Making_Knowledge_Base_Multi_Links(payload: Multiple_Links):
             status="Completed"
         )
 
-        print("<<<<<--- Data Inserted Completed ---->>>>>>>>")
+        logging.info("Data Insertion Completed")
 
         return {
             "message": "Ingestion complete",
@@ -240,10 +241,10 @@ async def Making_Knowledge_Base_PDF(payload: Multiple_Links):
 
     try:
         pdf_content = await download_extract_text_from_pdf(payload.multi_links)
-        print("<<<<<--- PDF Scarping Completed ---->>>>>>>>")
+        logging.info("PDF Scarping Completed ")
 
         chunked_text = await Recursive_chunking(text=pdf_content)
-        print("<<<<<--- Chunking Completed ---->>>>>>>>")
+        logging.info("PDF Chunking Completed ")
 
         collection_ready = await Create_Collection(
             collection_name=knowledge_base_id,
@@ -271,7 +272,7 @@ async def Making_Knowledge_Base_PDF(payload: Multiple_Links):
             status="Completed"
         )
 
-        print("<<<<<--- Data Inserted Completed ---->>>>>>>>")
+        logging.info("Data Insertion completed Completed ")
 
         return {
             "message": "Ingestion complete",
